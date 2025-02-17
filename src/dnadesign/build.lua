@@ -14,6 +14,7 @@ local files = {
     { path = "src/mash.tl", module = "mash" },
 	{ path = "src/seqhash.tl", module = "seqhash"},
 	{ path = "src/primers.tl", module = "primers"},
+	{ path = "src/pcr.tl", module = "pcr"},
 }
 
 local combined = "-- dnadesign.tl\n\n"
