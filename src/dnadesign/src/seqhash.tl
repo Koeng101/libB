@@ -1,7 +1,7 @@
 --[[
-Package seqhash contains the seqhash algorithm.
+Module seqhash contains the seqhash algorithm.
 
-This package contains the reference seqhash algorithm in Teal.
+This module contains the reference seqhash algorithm in Teal.
 
 There is a big problem with current sequence databases - they all use different
 identifiers and accession numbers. This means cross-referencing databases is

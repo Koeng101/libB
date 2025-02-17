@@ -13,6 +13,7 @@ local files = {
     { path = "src/align.tl", module = "align" },
     { path = "src/mash.tl", module = "mash" },
 	{ path = "src/seqhash.tl", module = "seqhash"},
+	{ path = "src/primers.tl", module = "primers"},
 }
 
 local combined = "-- dnadesign.tl\n\n"
@@ -25,7 +26,7 @@ for _, file in ipairs(files) do
     content = content:gsub('(local%s+[%w_]+%s*=%s*require%(["\'].-["\']%)[^\n]*)', '-- %1')
     
     -- Keep only the local declaration part, remove the return
-    content = content:gsub(string.format("return %s", file.module), "")
+	content = content:gsub(string.format("(\n)return %s", file.module), "%1")
     
     combined = combined .. content .. "\n\n"
 end

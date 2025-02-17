@@ -1,5 +1,5 @@
 --[[
-Package transform provides functions for transforming sequences.
+Module transform provides functions for transforming sequences.
 ]]
 local record transform
     -- DNA/RNA sequence transformations
