@@ -15,6 +15,8 @@ local files = {
 	{ path = "src/seqhash.tl", module = "seqhash"},
 	{ path = "src/primers.tl", module = "primers"},
 	{ path = "src/pcr.tl", module = "pcr"},
+	{ path = "src/bio/bio.tl", module = "bio"},
+	{ path = "src/bio/fasta.tl", module = "fasta"},
 }
 
 local combined = "-- dnadesign.tl\n\n"
