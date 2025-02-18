@@ -20,6 +20,7 @@ local files = {
 	{ path = "src/bio/fastq.tl", module = "fastq"},
 	{ path = "src/bio/pileup.tl", module = "pileup"},
 	{ path = "src/bio/sam.tl", module = "sam"},
+	{ path = "src/fold/energies.tl", module = "energies"},
 }
 
 local combined = "-- dnadesign.tl\n\n"
@@ -50,6 +51,7 @@ out_file:write(combined)
 out_file:close()
 
 -- Call tl to compile
+os.execute("tl check dnadesign.tl")
 os.execute("tl gen dnadesign.tl")
-os.execute("busted")
+os.execute("busted --lua=luajit")
 os.execute("rm dnadesign.tl dnadesign.lua")
