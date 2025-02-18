@@ -70,20 +70,17 @@ local record FastaHeader is bio.Header
    write: function(self: FastaHeader, writer: bio.Writer): (boolean, string)
 end
 
+
 -- FastaParser implements an efficient buffered parser for FASTA format
 local record FastaParser is bio.Parser
    where self.format == "FASTA"
 
-   reader: bio.Reader
-   buffer: string        -- Current buffer contents
-   buffer_pos: integer   -- Current position in buffer
-   buffer_size: integer  -- Size of current buffer
+   reader: bio.BufferedReader
    identifier: string
    sequence_buffer: {string}  -- Accumulates sequence data
    start: boolean
    line: integer
    more: boolean
-   max_line_size: integer
 
    -- Implement bio.Parser interface
    header: function(self: FastaParser): (bio.Header, string)
@@ -109,16 +106,13 @@ function FastaRecord:write(writer: bio.Writer): (boolean, string)
    if err then return false, err end
 
    -- Write sequence in 80 character chunks
-   local pos = 1
-   while pos <= #self.sequence do
-      local chunk = self.sequence:sub(pos, pos + 79)
+   local i = 1
+   while i <= #self.sequence do
+      local chunk = self.sequence:sub(i, i + 79)
       _, err = writer:write(chunk .. "\n")
       if err then return false, err end
-      pos = pos + 80
+      i = i + 80
    end
-
-   _, err = writer:write("\n")
-   if err then return false, err end
 
    return true, nil
 end
@@ -153,69 +147,16 @@ local function new_fasta_header(): FastaHeader
    return fasta_head
 end
 
--- Efficiently read a line from the buffer, fetching more data if needed
-local function read_buffered_line(parser: FastaParser): (string, string)
-   local line_parts = {}
-   local found_newline = false
-   
-   while not found_newline do
-      -- If buffer is empty or exhausted, read more
-      if parser.buffer_pos > parser.buffer_size then
-         local chunk, err = parser.reader:read(parser.max_line_size)
-         if err == "EOF" then
-            if #line_parts == 0 then
-               return nil, "EOF"
-            end
-            break
-         elseif err then
-            return nil, err
-         end
-         parser.buffer = chunk
-         parser.buffer_pos = 1
-         parser.buffer_size = #chunk
-      end
-      
-      -- Look for newline in current buffer
-      local newline_pos = parser.buffer:find("\n", parser.buffer_pos)
-      if newline_pos then
-         -- Found newline, extract up to it
-         local part = parser.buffer:sub(parser.buffer_pos, newline_pos - 1)
-         if part ~= "" then
-            table.insert(line_parts, part)
-         end
-         parser.buffer_pos = newline_pos + 1
-         found_newline = true
-      else
-         -- No newline, take rest of buffer
-         local part = parser.buffer:sub(parser.buffer_pos)
-         if part ~= "" then
-            table.insert(line_parts, part)
-         end
-         parser.buffer_pos = parser.buffer_size + 1
-      end
-   end
-   
-   local line = table.concat(line_parts)
-   -- Remove trailing \r if present
-   if line:sub(-1) == "\r" then
-      line = line:sub(1, -2)
-   end
-   return line, nil
-end
-
 -- Create a new FastaParser
 function fasta.new_parser(reader: bio.Reader, max_line_size: integer): FastaParser
+   local buffered = bio.new_buffered_reader(reader, max_line_size)
    local parser: FastaParser = {
-      reader = reader,
-      buffer = "",
-      buffer_pos = 1,
-      buffer_size = 0,
+      reader = buffered,
       identifier = "",
       sequence_buffer = {},
       start = true,
       line = 0,
       more = true,
-      max_line_size = max_line_size,
       header = nil,
       next = nil,
       get_format = nil
@@ -245,7 +186,7 @@ function fasta.new_parser(reader: bio.Reader, max_line_size: integer): FastaPars
       end
 
       while true do
-         local line, err = read_buffered_line(self)
+         local line, err = self.reader:read_line()
          if err == "EOF" then
             self.more = false
             if #self.sequence_buffer > 0 then

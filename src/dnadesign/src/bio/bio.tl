@@ -17,6 +17,12 @@ local record bio
 	Parser: Parser
 	DEFAULT_MAX_LENGTHS: {Format:number}
 	
+	StringReader: StringReader
+	StringWriter: StringWriter
+	BufferedReader: BufferedReader
+	new_string_reader: function(content: string): StringReader
+	new_string_writer: function(): StringWriter
+	new_buffered_reader: function(reader: Reader, max_line_size: integer): BufferedReader
 end
 
 -- Format is an enum of different parser formats.
@@ -201,6 +207,131 @@ function bio.new_string_reader(content: string): StringReader
     end
 
     return reader
+end
+
+-- StringWriter implements the bio.Writer interface for testing
+local record StringWriter is bio.Writer
+    content: string
+    
+    write: function(self: StringWriter, data: string): (number, string)
+    close: function(self: StringWriter): (boolean, string)
+    get_content: function(self: StringWriter): string
+end
+
+-- Create a new string writer that implements the bio.Writer interface
+function bio.new_string_writer(): StringWriter
+    local writer: StringWriter = {
+        content = "",
+        write = nil,  -- Will be defined below
+        close = nil,  -- Will be defined below
+        get_content = nil -- Will be defined below
+    }
+
+    -- Write implements bio.Writer write interface
+    function writer:write(data: string): (number, string)
+        self.content = self.content .. data
+        return #data, nil
+    end
+
+    -- Close implements Writer close interface
+    function writer:close(): (boolean, string)
+        return true, nil
+    end
+
+    -- Get current content
+    function writer:get_content(): string
+        return self.content
+    end
+
+    return writer
+end
+
+local record BufferedReader is Reader
+   wrapped: Reader
+   buffer: string        
+   buffer_pos: integer   
+   buffer_size: integer  
+   max_line_size: integer
+
+   read: function(self: BufferedReader, n: integer): (string, string)
+   close: function(self: BufferedReader): (boolean, string)
+   read_line: function(self: BufferedReader): (string, string)
+end
+
+-- Create a new buffered reader that implements the bio.Reader interface
+function bio.new_buffered_reader(reader: Reader, max_line_size: integer): BufferedReader
+   local br: BufferedReader = {
+      wrapped = reader,
+      buffer = "",
+      buffer_pos = 1,
+      buffer_size = 0,
+      max_line_size = max_line_size,
+      read = nil,  -- Defined below
+      close = nil, -- Defined below 
+      read_line = nil -- Defined below
+   }
+
+   -- Implement the read method - delegates to wrapped reader
+   function br:read(n: integer): (string, string)
+      return self.wrapped:read(n)
+   end
+
+   -- Implement the close method - delegates to wrapped reader
+   function br:close(): (boolean, string)
+      return self.wrapped:close()
+   end
+
+   -- Efficiently read a line from the buffer, fetching more data if needed
+   function br:read_line(): (string, string)
+      local line_parts = {}
+      local found_newline = false
+      
+      while not found_newline do
+         -- If buffer is empty or exhausted, read more
+         if self.buffer_pos > self.buffer_size then
+            local chunk, err = self.wrapped:read(self.max_line_size)
+            if err == "EOF" then
+               if #line_parts == 0 then
+                  return nil, "EOF"
+               end
+               break
+            elseif err then
+               return nil, err
+            end
+            self.buffer = chunk
+            self.buffer_pos = 1
+            self.buffer_size = #chunk
+         end
+         
+         -- Look for newline in current buffer
+         local newline_pos = self.buffer:find("\n", self.buffer_pos)
+         if newline_pos then
+            -- Found newline, extract up to it
+            local part = self.buffer:sub(self.buffer_pos, newline_pos - 1)
+            if part ~= "" then
+               table.insert(line_parts, part)
+            end
+            self.buffer_pos = newline_pos + 1
+            found_newline = true
+         else
+            -- No newline, take rest of buffer
+            local part = self.buffer:sub(self.buffer_pos)
+            if part ~= "" then
+               table.insert(line_parts, part)
+            end
+            self.buffer_pos = self.buffer_size + 1
+         end
+      end
+      
+      local line = table.concat(line_parts)
+      -- Remove trailing \r if present
+      if line:sub(-1) == "\r" then
+         line = line:sub(1, -2)
+      end
+      return line, nil
+   end
+
+   return br
 end
 
 return bio
