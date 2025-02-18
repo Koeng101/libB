@@ -19,6 +19,7 @@ local files = {
 	{ path = "src/bio/fasta.tl", module = "fasta"},
 	{ path = "src/bio/fastq.tl", module = "fastq"},
 	{ path = "src/bio/pileup.tl", module = "pileup"},
+	{ path = "src/bio/sam.tl", module = "sam"},
 }
 
 local combined = "-- dnadesign.tl\n\n"
