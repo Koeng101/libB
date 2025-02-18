@@ -47,7 +47,6 @@ end
 -- Import required modules
 local hash = require("hash") -- MODULE:hash
 local transform = require("transform") -- MODULE:hash
-local bit32 = hash.bit32
 
 -- Define the Sequence Type constants
 local SEQ_TYPE_DNA: string = "DNA"
@@ -220,15 +219,15 @@ Used for seqhash v2
 ]]
 local function version2_flag(version: integer, sequence_type: string, circularity: boolean, double_stranded: boolean): integer
     local flag: integer = 0
-    flag = bit32.bor(flag, bit32.lshift(version, HASH2_VERSION_SHIFT))
+    flag = hash.bit32.bor(flag, hash.bit32.lshift(version, HASH2_VERSION_SHIFT))
     if circularity then
-        flag = bit32.bor(flag, bit32.lshift(1, HASH2_CIRCULARITY_SHIFT))
+        flag = hash.bit32.bor(flag, hash.bit32.lshift(1, HASH2_CIRCULARITY_SHIFT))
     end
     if double_stranded then
-        flag = bit32.bor(flag, bit32.lshift(1, HASH2_DOUBLE_STRANDED_SHIFT))
+        flag = hash.bit32.bor(flag, hash.bit32.lshift(1, HASH2_DOUBLE_STRANDED_SHIFT))
     end
     local type_flag = sequence_type_to_flag[sequence_type]
-    flag = bit32.bor(flag, bit32.band(type_flag, HASH2_TYPE_MASK))
+    flag = hash.bit32.bor(flag, hash.bit32.band(type_flag, HASH2_TYPE_MASK))
     return flag
 end
 
@@ -238,10 +237,10 @@ Outputs: version, sequence_type, circularity, doubleStranded.
 Used for seqhash v2
 ]]
 local function decode_flag(flag: integer): (integer, string, boolean, boolean)
-    local version = bit32.rshift(bit32.band(flag, HASH2_VERSION_MASK), HASH2_VERSION_SHIFT)
-    local circularity = bit32.band(flag, HASH2_CIRCULARITY_MASK) ~= 0
-    local double_stranded = bit32.band(flag, HASH2_DOUBLE_STRANDED_MASK) ~= 0
-    local seq_type = flag_to_sequence_type[bit32.band(flag, HASH2_TYPE_MASK)]
+    local version = hash.bit32.rshift(hash.bit32.band(flag, HASH2_VERSION_MASK), HASH2_VERSION_SHIFT)
+    local circularity = hash.bit32.band(flag, HASH2_CIRCULARITY_MASK) ~= 0
+    local double_stranded = hash.bit32.band(flag, HASH2_DOUBLE_STRANDED_MASK) ~= 0
+    local seq_type = flag_to_sequence_type[hash.bit32.band(flag, HASH2_TYPE_MASK)]
     return version, seq_type, circularity, double_stranded
 end
 

@@ -1,6 +1,13 @@
 -- hash.tl
 -- Implementation of common hashing algorithms
 
+local record hash
+    bit32: bit32
+    new_crc32: function(): CRC32
+    new_sha256: function(): SHA256
+    Hash32: Hash32
+end
+
 -- Bit manipulation functions since bit32 isn't available
 local record bit32
 	band: function(a: integer, b: integer): integer
@@ -220,7 +227,7 @@ local K: {integer} = {
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 }
 
-local function transform(state: SHA256State): nil 
+local function hash_transform(state: SHA256State): nil 
     local W: {integer} = {}
     
     -- Fill W
@@ -313,7 +320,7 @@ local function update_state(state: SHA256State, buffer: string): nil
         state.local_ = state.local_ + i
 
         if state.local_ == SHA_BLOCKSIZE then
-            transform(state)
+            hash_transform(state)
             state.local_ = 0
         else
             return
@@ -326,7 +333,7 @@ local function update_state(state: SHA256State, buffer: string): nil
         end
         count = count - SHA_BLOCKSIZE
         buffer_idx = buffer_idx + SHA_BLOCKSIZE
-        transform(state)
+        hash_transform(state)
     end
 
     -- Handle remaining bytes
@@ -349,7 +356,7 @@ local function final_state(state: SHA256State): {integer}
             state.data[count + 1] = 0
             count = count + 1
         end
-        transform(state)
+        hash_transform(state)
         count = 0
     end
 
@@ -367,7 +374,7 @@ local function final_state(state: SHA256State): {integer}
     state.data[63] = bit32.rshift(lo_bit_count, 8) % 256
     state.data[64] = lo_bit_count % 256
 
-    transform(state)
+    hash_transform(state)
 
     local digest = {}
     for i = 1, 8 do
@@ -415,14 +422,9 @@ local function new_sha256(): SHA256
     }
 end
 
-local record hash
-	bit32: bit32
-	new_crc32: function(): CRC32
-	new_sha256: function(): SHA256
-end
-
 hash.bit32 = bit32
 hash.new_crc32 = new_crc32
 hash.new_sha256 = new_sha256
+hash.Hash32 = Hash32
 
 return hash
