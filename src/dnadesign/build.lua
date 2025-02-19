@@ -27,6 +27,7 @@ local files = {
 	{ path = "src/fragment.tl", module = "fragment"},
 	{ path = "src/clone.tl", module = "clone"},
 	{ path = "src/codon.tl", module = "codon"},
+	{ path = "src/fix.tl", module = "fix"},
 }
 
 local combined = "-- dnadesign.tl\n\n"

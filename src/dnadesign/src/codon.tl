@@ -36,6 +36,8 @@ local record codon
 
 	-- generating from NCBI strings
     generate_codon_table: function(amino_acids: string, starts: string): TranslationTable
+
+	TranslationTable: TranslationTable
 end
 
 -- Error messages
@@ -223,9 +225,6 @@ local function optimize(self: TranslationTable, aas: string): (string, string)
     
     return table.concat(codons), ""
 end
-
-
-
 
 -- Function to generate default codon tables from NCBI
 function codon.generate_codon_table(amino_acids: string, starts: string): TranslationTable
