@@ -23,9 +23,6 @@ local function random_rna_sequence(length)
 end
 
 describe("transform", function()
-  -- Set random seed for reproducibility
-  math.randomseed(1)
-
   describe("reverse", function()
     it("should correctly reverse sequences of even and odd lengths", function()
       local sequence = random_dna_sequence(20)

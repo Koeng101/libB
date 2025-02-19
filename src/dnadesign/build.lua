@@ -8,6 +8,7 @@ end
 
 -- Files in dependency order with their module names
 local files = {
+	{ path = "src/rng.tl", module = "rng"},
     { path = "src/hash.tl", module = "hash" },
     { path = "src/transform.tl", module = "transform" },
     { path = "src/align.tl", module = "align" },
@@ -24,6 +25,7 @@ local files = {
 	{ path = "src/fold/zuker.tl", module = "zuker"},
 	{ path = "src/fragment_frequencies.tl", module = "fragment_frequencies"},
 	{ path = "src/fragment.tl", module = "fragment"},
+	{ path = "src/clone.tl", module = "clone"},
 }
 
 local combined = "-- dnadesign.tl\n\n"
@@ -57,4 +59,4 @@ out_file:close()
 os.execute("tl check dnadesign.tl")
 os.execute("tl gen dnadesign.tl")
 os.execute("busted --lua=luajit")
-os.execute("rm dnadesign.tl dnadesign.lua")
+--os.execute("rm dnadesign.tl dnadesign.lua")
