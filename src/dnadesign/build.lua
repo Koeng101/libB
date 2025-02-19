@@ -22,6 +22,8 @@ local files = {
 	{ path = "src/bio/sam.tl", module = "sam"},
 	{ path = "src/fold/energies.tl", module = "energies"},
 	{ path = "src/fold/zuker.tl", module = "zuker"},
+	{ path = "src/fragment_frequencies.tl", module = "fragment_frequencies"},
+	{ path = "src/fragment.tl", module = "fragment"},
 }
 
 local combined = "-- dnadesign.tl\n\n"
