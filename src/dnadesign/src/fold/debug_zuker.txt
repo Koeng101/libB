@@ -1,3 +1,6 @@
+I'm having a problem with default parameter tables are messing up my calculations. Here is my code:
+
+```lua
 local energies = require("energies")
 
 local record zuker
@@ -43,38 +46,40 @@ end
 
 local function stack(start: integer, rightOfStart: integer, end_idx: integer, leftOfEnd: integer, foldContext: context): number
     local paired = pair(foldContext.seq, start, rightOfStart, end_idx, leftOfEnd)
-    print(string.format("stack() called with pair: %s", paired))
+    
+    -- For 1x1 loops, we should handle missing pairs differently
+    local is_1x1 = (rightOfStart - start == 2) and (end_idx - leftOfEnd == 2)
     
     -- Check for dangling ends first
     for _, idx in ipairs({start, rightOfStart, end_idx, leftOfEnd}) do
         if idx == -1 then
-            print("  dangling end case")
             local fold_energy = foldContext.energies.danglingEnds[paired]
-            local dg = energies.delta_g(fold_energy.enthalpyH, fold_energy.entropyS, foldContext.temp)
-            print(string.format("  dangling energy: %f", dg))
-            return dg
+            if fold_energy then
+                return energies.delta_g(fold_energy.enthalpyH, fold_energy.entropyS, foldContext.temp)
+            end
+            -- Return default energy for missing dangling end
+            return energies.delta_g(0, -1.6, foldContext.temp) -- Common RNA/DNA dangling default
         end
     end
 
-    -- Check bounds
+    -- Then check bounds
     for _, idx in ipairs({start, rightOfStart, end_idx, leftOfEnd}) do
         if idx >= #foldContext.seq then
-            print("  out of bounds")
             return 0
         end
     end
 
     -- Internal case
     if start > 0 and end_idx < #foldContext.seq - 1 then
-        print("  internal case")
         local fold_energy = foldContext.energies.nearestNeighbors[paired]
         if not fold_energy then
-            print("  not in nearestNeighbors, trying internalMismatches")
             fold_energy = foldContext.energies.internalMismatches[paired]
         end
-        local dg = energies.delta_g(fold_energy.enthalpyH, fold_energy.entropyS, foldContext.temp)
-        print(string.format("  internal energy: %f", dg))
-        return dg
+        if not fold_energy and is_1x1 then
+            -- For 1x1 loops, use a default mismatch energy when not found
+            return energies.delta_g(0, -4.1, foldContext.temp) -- Typical RNA 1x1 loop penalty
+        end
+        return energies.delta_g(fold_energy.enthalpyH, fold_energy.entropyS, foldContext.temp)
     end
 
     -- Terminal case
@@ -283,61 +288,58 @@ local function internal_loop(start: integer, rightOfStart: integer, end_idx: int
 
 	-- Special case: 1x1 internal loop
     if leftLoopSize == 1 and rightLoopSize == 1 then
-	    print(string.format("1x1 loop for sequence %s:", foldContext.seq))
-	    print(string.format("  left region: %s", foldContext.seq:sub(start+1, rightOfStart)))
-	    print(string.format("  right region: %s", foldContext.seq:sub(leftOfEnd+1, end_idx)))
-	    local mismatchLeftEnergy = stack(start, rightOfStart, end_idx, leftOfEnd, foldContext)
-	    local mismatchRightEnergy = stack(rightOfStart-1, rightOfStart, leftOfEnd+1, leftOfEnd, foldContext)
-	    print(string.format("  energies: left=%f right=%f total=%f", 
-	          mismatchLeftEnergy, mismatchRightEnergy, mismatchLeftEnergy + mismatchRightEnergy))
-	    return mismatchLeftEnergy + mismatchRightEnergy, nil
-	end
+        print("1x1 case:")
+        local mismatchLeftEnergy = stack(start, rightOfStart, end_idx, leftOfEnd, foldContext)
+        local mismatchRightEnergy = stack(rightOfStart-1, rightOfStart, leftOfEnd+1, leftOfEnd, foldContext)
+        print(string.format("  mismatch energies: left=%f right=%f", mismatchLeftEnergy, mismatchRightEnergy))
+        return mismatchLeftEnergy + mismatchRightEnergy, nil
+    end
 
     -- Calculate base free energy based on loop size
     local dG = 0.0
+    print(string.format("Looking up loop size %d", totalLoopSize))
     
     if totalLoopSize <= maxLenPreCalulated then
         local energy = foldContext.energies.internalLoops[totalLoopSize]
-        if energy then
-            dG = energies.delta_g(energy.enthalpyH, energy.entropyS, foldContext.temp)
-            print(string.format("Internal loop size %d: base dG=%f", totalLoopSize, dG))
+        -- Go would use zero struct here if not found, we should do the same
+        if not energy then
+            energy = {enthalpyH = 0, entropyS = -3.5} -- Default values
         end
+        dG = energies.delta_g(energy.enthalpyH, energy.entropyS, foldContext.temp)
+        print(string.format("  base loop energy: %f", dG))
     else
         local max_energy = foldContext.energies.internalLoops[maxLenPreCalulated]
-        if max_energy then
-            local dGinc = energies.delta_g(max_energy.enthalpyH, max_energy.entropyS, foldContext.temp)
-            dG = energies.jacobson_stockmayer(totalLoopSize, maxLenPreCalulated, dGinc, foldContext.temp)
-            print(string.format("Large loop size %d: extrapolated dG=%f", totalLoopSize, dG))
+        if not max_energy then
+            max_energy = {enthalpyH = 0, entropyS = -3.5} -- Default values
         end
+        local dGinc = energies.delta_g(max_energy.enthalpyH, max_energy.entropyS, foldContext.temp)
+        dG = energies.jacobson_stockmayer(totalLoopSize, maxLenPreCalulated, dGinc, foldContext.temp)
+        print(string.format("  extrapolated energy: %f", dG))
     end
 
     -- Add asymmetry penalty
     local loopAsymmetry = math.abs(leftLoopSize - rightLoopSize)
-    local asymPenalty = loopsAsymmetryPenalty * loopAsymmetry
-    print(string.format("Asymmetry |%d-%d|=%d penalty=%f", 
-          leftLoopSize, rightLoopSize, loopAsymmetry, asymPenalty))
-    dG = dG + asymPenalty
+    dG = dG + (loopsAsymmetryPenalty * loopAsymmetry)
+    print(string.format("  after asymmetry penalty: %f", dG))
 
     -- Add terminal mismatch penalties
     local leftPair = pair(foldContext.seq, start, start+1, end_idx, end_idx-1)
     local rightPair = pair(foldContext.seq, rightOfStart-1, rightOfStart, leftOfEnd+1, leftOfEnd)
-    print(string.format("Terminal pairs: left=%s right=%s", leftPair, rightPair))
+    print(string.format("Looking up terminal pairs: %s and %s", leftPair, rightPair))
 
     local leftEnergy = foldContext.energies.terminalMismatches[leftPair]
-    if leftEnergy then
-        local leftDG = energies.delta_g(leftEnergy.enthalpyH, leftEnergy.entropyS, foldContext.temp)
-        print(string.format("Left mismatch energy: %f", leftDG))
-        dG = dG + leftDG
+    if not leftEnergy then
+        leftEnergy = {enthalpyH = 0, entropyS = -2.1} -- Default terminal mismatch
     end
+    dG = dG + energies.delta_g(leftEnergy.enthalpyH, leftEnergy.entropyS, foldContext.temp)
 
     local rightEnergy = foldContext.energies.terminalMismatches[rightPair]
-    if rightEnergy then
-        local rightDG = energies.delta_g(rightEnergy.enthalpyH, rightEnergy.entropyS, foldContext.temp)
-        print(string.format("Right mismatch energy: %f", rightDG))
-        dG = dG + rightDG
+    if not rightEnergy then
+        rightEnergy = {enthalpyH = 0, entropyS = -2.1} -- Default terminal mismatch
     end
+    dG = dG + energies.delta_g(rightEnergy.enthalpyH, rightEnergy.entropyS, foldContext.temp)
 
-    print(string.format("Final total dG: %f", dG))
+    print(string.format("Final energy: %f", dG))
     return dG, nil
 end
 
@@ -348,3 +350,156 @@ zuker.bulge = bulge
 zuker.internal_loop = internal_loop
 
 return zuker
+```
+
+Here is a list of everything we need to fix:
+
+Below is a list of **every place** in that Teal snippet where the code silently inserts a “default” (often zero) penalty (enthalpy/entropy) if the parameter tables do not have an entry. Each of these is a spot where you might want a more correct or explicit fallback:
+
+---
+
+## 1. **`stack(...)`: Dangling‐ends fallback**  
+
+**Lines ~16–20** (in the `for _, idx in ipairs(...) do` loop), you do:
+
+```lua
+local fold_energy = foldContext.energies.danglingEnds[paired]
+if fold_energy then
+    return energies.delta_g(fold_energy.enthalpyH, fold_energy.entropyS, foldContext.temp)
+end
+-- Return default energy for missing dangling end
+return energies.delta_g(0, -1.6, foldContext.temp) -- Common RNA/DNA dangling default
+```
+
+If `fold_energy` is **nil** (the key is missing from `danglingEnds`), you explicitly return an enthalpy=0, entropy=−1.6 fallback. That is an “improper zero” or “hard-coded fallback.”
+
+---
+
+## 2. **`stack(...)`: 1×1 mismatch fallback**  
+
+**Lines ~44–47** (in the “internal case” check, if `is_1x1` and `fold_energy` is missing):
+
+```lua
+if not fold_energy and is_1x1 then
+    -- For 1x1 loops, use a default mismatch energy when not found
+    return energies.delta_g(0, -4.1, foldContext.temp) -- Typical RNA 1x1 loop penalty
+end
+```
+
+If there is no entry in `nearestNeighbors` or `internalMismatches` for that pair in a 1×1 loop, you force an entropyS=−4.1 fallback. That is another hard‐coded default.
+
+---
+
+## 3. **`stack(...)`: Terminal‐case fallback**  
+
+**Lines ~59–65** (in the “terminal case” block):
+
+```lua
+if fold_energy == nil then
+    print("  no energy found, returning 0")
+    return energies.delta_g(0, 0, foldContext.temp)
+end
+```
+
+If a terminal nearest‐neighbor or mismatch entry is missing, you do `enthalpyH=0, entropyS=0`.
+
+---
+
+## 4. **`bulge(...)`: If no bulge‐loops entry**  
+
+**Lines ~68–72** inside:
+
+```lua
+local energy = foldContext.energies.bulgeLoops[bulgeSize]
+if energy then
+    dG = energies.delta_g(energy.enthalpyH, energy.entropyS, foldContext.temp)
+end
+```
+
+If `energy` is **nil**, you do nothing, so `dG` remains the default `0`. That’s effectively a silent “fallback to 0” if there is no bulge‐loop record for that size. (Some might want to see a Jacobson‐Stockmayer approach or some error, but your code just remains zero.)
+
+---
+
+## 5. **`internal_loop(...)`: Base free‐energy fallback**  
+
+**Lines ~183–187**:
+
+```lua
+if not energy then
+    energy = {enthalpyH = 0, entropyS = -3.5} -- Default values
+end
+dG = energies.delta_g(energy.enthalpyH, energy.entropyS, foldContext.temp)
+```
+
+So if `foldContext.energies.internalLoops[totalLoopSize]` is missing, you forcibly use an enthalpy=0, entropy=−3.5. (You labeled it “Default values.”)
+
+---
+
+## 6. **`internal_loop(...)`: Terminal mismatch fallback**  
+
+**Lines ~206–214**, for the left and right terminal mismatch:
+
+```lua
+local leftEnergy = foldContext.energies.terminalMismatches[leftPair]
+if not leftEnergy then
+    leftEnergy = {enthalpyH = 0, entropyS = -2.1} -- Default terminal mismatch
+end
+dG = dG + energies.delta_g(leftEnergy.enthalpyH, leftEnergy.entropyS, foldContext.temp)
+
+local rightEnergy = foldContext.energies.terminalMismatches[rightPair]
+if not rightEnergy then
+    rightEnergy = {enthalpyH = 0, entropyS = -2.1} -- Default terminal mismatch
+end
+```
+
+Again, if no entry is found, you do “enthalpy=0, entropy=−2.1.”
+
+---
+
+## 7. **Potentially in `hairpin(...)`** if hairpin table entries are missing
+
+In `hairpin(...)`, you do:
+
+```lua
+local size_energy = foldContext.energies.hairpinLoops[hairpinLength]
+if size_energy then
+    dG = ...
+else
+    -- extrapolate
+end
+```
+
+While that’s *not* explicitly returning zero, it means if no record is found for `hairpinLoops[hairpinLength]`, you jump to “extrapolate.” That might be valid or might be “unexpected.” Also, for terminal mismatches in hairpins, you do:
+
+```lua
+local terminal_energy = foldContext.energies.terminalMismatches[paired]
+if hairpinLength > 3 and terminal_energy then
+    dG += ...
+end
+```
+
+If `terminal_energy` is missing, you do nothing (the code effectively uses 0). That’s not as explicit as the others, but it is still a fallback to 0 for a missing key.
+
+---
+
+### Summary of “Improper Zero” Fallbacks
+
+**Within your snippet**:
+
+1. **`stack`:**  
+   - Dangling ends missing → `enthalpy=0, entropy=−1.6`.  
+   - 1×1 mismatch missing → `enthalpy=0, entropy=−4.1`.  
+   - Terminal case missing → `enthalpy=0, entropy=0`.  
+
+2. **`bulge`:**  
+   - If a bulge loop size has no record → `dG` stays 0.  
+
+3. **`internal_loop`:**  
+   - If `foldContext.energies.internalLoops[totalLoopSize]` is missing → forcibly `enthalpy=0, entropy=−3.5`.  
+   - If `terminalMismatches[...]` is missing → forcibly `enthalpy=0, entropy=−2.1`.  
+
+4. **`hairpin`:**  
+   - If `foldContext.energies.hairpinLoops[hairpinLength]` is missing → do “extrapolate” (which might be legitimate or “improper,” depending on your design).  
+   - If `terminalMismatches` is missing → no penalty added (implicitly zero).  
+
+Those are all the places your snippet introduces a “default” or “placeholder” penalty for missing table entries. If you want every mismatch or loop size to come from real data (or to error out), you’d remove these code paths—or else fill the parameter tables so they are never missing.
