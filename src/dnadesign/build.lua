@@ -21,6 +21,7 @@ local files = {
 	{ path = "src/bio/pileup.tl", module = "pileup"},
 	{ path = "src/bio/sam.tl", module = "sam"},
 	{ path = "src/fold/energies.tl", module = "energies"},
+	{ path = "src/fold/zuker.tl", module = "zuker"},
 }
 
 local combined = "-- dnadesign.tl\n\n"
