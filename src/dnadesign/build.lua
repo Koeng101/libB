@@ -21,6 +21,7 @@ local files = {
 	{ path = "src/bio/fastq.tl", module = "fastq"},
 	{ path = "src/bio/pileup.tl", module = "pileup"},
 	{ path = "src/bio/sam.tl", module = "sam"},
+	{ path = "src/bio/genbank.tl", module = "genbank"},
 	{ path = "src/fold/energies.tl", module = "energies"},
 	{ path = "src/fold/zuker.tl", module = "zuker"},
 	{ path = "src/fragment_frequencies.tl", module = "fragment_frequencies"},

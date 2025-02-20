@@ -15,7 +15,7 @@ local record bio
 	Header: Header
 	Data: Data
 	Parser: Parser
-	DEFAULT_MAX_LENGTHS: {Format:number}
+	DEFAULT_MAX_LENGTHS: {Format:integer}
 	
 	StringReader: StringReader
 	StringWriter: StringWriter
@@ -61,7 +61,7 @@ end
 local interface Writer
     -- write writes the given string to the destination
     -- Returns number of bytes written and any error
-    write: function(self, data: string): (number, string)
+    write: function(self, data: string): (integer, string)
 
     -- close releases any resources
     close: function(self): (boolean, string)
@@ -80,7 +80,7 @@ DefaultMaxLengths maps each format to its maximum line length.
 Some formats, particularly SLOW5 and FASTQ, can have very long lines
 and need larger buffers.
 ]]
-local DEFAULT_MAX_LENGTHS: {Format:number} = {
+local DEFAULT_MAX_LENGTHS: {Format:integer} = {
    ["FASTA"] = DEFAULT_MAX_LINE_LENGTH,
    ["FASTQ"] = 8 * 1024 * 1024,    -- The longest single nanopore sequencing read so far is 4Mb. A 8mb buffer should be large enough.
    ["GENBANK"] = DEFAULT_MAX_LINE_LENGTH,
@@ -213,7 +213,7 @@ end
 local record StringWriter is bio.Writer
     content: string
     
-    write: function(self: StringWriter, data: string): (number, string)
+    write: function(self: StringWriter, data: string): (integer, string)
     close: function(self: StringWriter): (boolean, string)
     get_content: function(self: StringWriter): string
 end
@@ -228,7 +228,7 @@ function bio.new_string_writer(): StringWriter
     }
 
     -- Write implements bio.Writer write interface
-    function writer:write(data: string): (number, string)
+    function writer:write(data: string): (integer, string)
         self.content = self.content .. data
         return #data, nil
     end
