@@ -406,24 +406,26 @@ function fix.cds(sequence: string, codon_table: codon.TranslationTable, problema
                     table.insert(sorted_changes, potential_change)
                 end
             end
+			
+			if sorted_changes[1] ~= nil then
+			    -- Make sure we have enough sorted changes after sorting/removal
+        	    if #sorted_changes < suggestion.quantity_fixes then
+        	        return sequence, {}, string.format(
+        	            "Too many fixes required. Number of potential fixes: %d, number of required fixes: %d",
+        	            #potential_changes,
+        	            suggestion.quantity_fixes
+        	        )
+        	    end
 
-            -- Make sure we have enough sorted changes after sorting/removal
-            if #sorted_changes < suggestion.quantity_fixes then
-                return sequence, {}, string.format(
-                    "Too many fixes required. Number of potential fixes: %d, number of required fixes: %d",
-                    #potential_changes,
-                    suggestion.quantity_fixes
-                )
-            end
-
-            -- Apply the best changes up to quantity_fixes
-            for i = 1, suggestion.quantity_fixes do
-                local target_change = sorted_changes[i]
-                table.insert(historical_map[target_change.position], target_change.to)
-                table.insert(changes, target_change)
-                sequence = get_sequence(historical_map)
-            end
-        end
+        	    -- Apply the best changes up to quantity_fixes
+        	    for i = 1, suggestion.quantity_fixes do
+        	        local target_change = sorted_changes[i]
+        	        table.insert(historical_map[target_change.position], target_change.to)
+        	        table.insert(changes, target_change)
+        	        sequence = get_sequence(historical_map)
+        	    end
+        	end
+		end
         fix_iteration = fix_iteration + 1
 
         -- Safety check to prevent infinite loops (100 iterations max)
