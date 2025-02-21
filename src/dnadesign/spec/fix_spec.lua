@@ -68,4 +68,23 @@ describe("fix", function()
         local _, _, err2 = fix.cds("GGG", ecoli_table, bad_gc_functions)
         assert.is_not_nil(err2)
     end)
+
+	it("should handle case where no changes are needed", function()
+        local ecoli_table = codon.default_tables["ecoli"]
+        local functions = {
+            fix.remove_sequence({"AAAAAA"}, "Test sequence not present.")
+        }
+        
+        -- Use a simple sequence that doesn't contain the sequence to be removed
+        local result, changes, err = fix.cds("ATGTACTGA", ecoli_table, functions)
+        
+        -- Should return the original sequence unchanged
+        assert.equals("ATGTACTGA", result)
+        -- Should not be nil
+        assert.is_not_nil(result)
+        -- Should not have an error
+        assert.is_nil(err)
+        -- Changes should be empty
+        assert.equals(0, #changes)
+    end)
 end)
