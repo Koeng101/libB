@@ -1,5 +1,5 @@
---[[
-The bio package provides utilities for reading and writing sequence data.
+--[[ Module bio
+The bio module provides utilities for reading and writing sequence data.
 
 There are many different biological file formats for different applications.
 The bio package provides a consistent way to work with each of these file

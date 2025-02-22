@@ -1,4 +1,4 @@
---[[
+--[[ Module rng
 rng.tl - A Deterministic Random Number Generator for Hermetic Environments
 
 This module implements L'Ecuyer's Combined Linear Congruential Generator (LCG) to provide

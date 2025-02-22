@@ -1,3 +1,11 @@
+--[[ Module fragment_frequencies
+
+Module fragment_frequencies is simply a table of {string:{string:integer}}
+defining the observed experimental ligation rates of different overhangs.
+
+It shouldn't be used directly - just use in combination with the fragment
+module.
+]]
 local fragment_frequencies: {string:{string:integer}} = {
     ["AAAA"] = {
             ["AAAA"] = 635,

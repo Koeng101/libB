@@ -1,12 +1,12 @@
---[[
-Package fastq contains fastq parsers and writers.
+--[[ Module fastq
+Module fastq contains fastq parsers and writers.
 
 Fastq is a flat text file format developed in ~2000 to store nucleotide
 sequencing data. While similar to fastq, fastq has a few differences. First,
 the sequence identifier begins with @ instead of >, and includes quality
 values for a sequence.
 
-This package provides a parser and writer for working with Fastq formatted
+This module provides a parser and writer for working with Fastq formatted
 sequencing data.
 ]]
 
@@ -52,7 +52,7 @@ local record FastqParser is bio.Parser
 
    -- Implement bio.Parser interface
    header: function(self: FastqParser): (bio.Header, string)
-   next: function(self: FastqParser): (bio.Data, string)
+   next: function(self: FastqParser): (FastqRead, string)
    get_format: function(self: FastqParser): bio.Format
 end
 
@@ -180,7 +180,7 @@ function fastq.new_parser(reader: bio.Reader, max_line_size: integer): FastqPars
       return nil
    end
 
-   function parser:next(): (bio.Data, string)
+   function parser:next(): (FastqRead, string)
       if self.at_eof then
          return nil, "EOF"
       end

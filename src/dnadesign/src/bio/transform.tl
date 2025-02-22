@@ -1,4 +1,9 @@
 --[[
+This is just here so the teal language server doesn't get mad that it can't
+import transform in the bio packages.
+
+Use the transform in the directory above
+
 Module transform provides functions for transforming sequences.
 ]]
 local record transform

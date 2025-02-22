@@ -1,5 +1,5 @@
---[[
-Package pcr designs and simulates simple PCR reactions.
+--[[ Module pcr
+Module pcr designs and simulates simple PCR reactions.
 
 PCR, or polymerase chain reaction, is a method developed in 1983 to copy DNA
 templates using small fragments of synthesized single-stranded DNA, amplifying
@@ -7,8 +7,8 @@ those DNA templates to ~x1,000,000,000 their starting concentration. These small
 fragments, referred to as "primers" or "oligos", can be designed on a computer
 and then synthesized for amplifying a variety of different templates.
 
-This package allows users to simulate a PCR reaction or design new primers to
-amplify a given template. This package assumes perfect annealing to template at
+This module allows users to simulate a PCR reaction or design new primers to
+amplify a given template. This module assumes perfect annealing to template at
 a target temperature, so should only be used for PCR reactions where this is a
 reasonable assumption.
 

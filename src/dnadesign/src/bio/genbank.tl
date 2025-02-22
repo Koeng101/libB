@@ -1,11 +1,11 @@
---[[
-Package genbank provides genbank parsers and writers.
+--[[ Module genbank
+Module genbank provides genbank parsers and writers.
 
 GenBank is a flat text file format developed in the 1980s to annotate genetic
 sequences, and has since become the standard for sharing annotated genetic
 sequences.
 
-This package provides a parser and writer to convert between the GenBank file
+This module provides a parser and writer to convert between the GenBank file
 format and the more general Genbank struct.
 ]]
 
@@ -25,9 +25,6 @@ local record genbank
 
     -- Functions exported by package
     new_parser: function(reader: bio.Reader, max_line_size: integer): GenbankParser
-    parse_location: function(location_string: string): (Location, string)
-    build_location_string: function(location: Location): string
-    build_feature_string: function(feature: Feature): string
     get_feature_sequence: function(feature: Feature, location: Location): (string, string)
 end
 
@@ -227,13 +224,214 @@ local function count_leading_spaces(line: string): integer
     return #line - #trimmed
 end
 
+-- Location parsing implementation
+local function parse_simple_location(loc_str: string): (Location, string)
+    -- Create new location with explicit initialization
+    local location: Location = {
+        Start = 0,
+        End = 0,
+        Complement = false,
+        Join = false,
+        FivePrimePartial = false,
+        ThreePrimePartial = false,
+        GbkLocationString = loc_str,
+        SubLocations = {}
+    }
+
+    -- Handle partial indicators
+    if loc_str:find("<") then
+        location.FivePrimePartial = true
+        loc_str = loc_str:gsub("<", "")
+    end
+    if loc_str:find(">") then
+        location.ThreePrimePartial = true
+        loc_str = loc_str:gsub(">", "")
+    end
+
+    -- Parse the location numbers
+    if not loc_str:find("%.%.") then
+        -- Single position
+        local pos = tonumber(loc_str) as integer
+        if not pos then
+            return nil, "Invalid position in location string"
+        end
+        -- Convert to 0-based indexing
+        location.Start = pos - 1
+        location.End = pos
+    else
+        -- Range
+        local start_str, end_str = loc_str:match("(%d+)%.%.(%d+)")
+        if not start_str or not end_str then
+            return nil, "Invalid range format"
+        end
+        local start = tonumber(start_str) as integer
+        local end_pos = tonumber(end_str) as integer
+        if not start or not end_pos then
+            return nil, "Invalid range numbers"
+        end
+        -- Convert to 0-based indexing
+        location.Start = start - 1
+        location.End = end_pos
+    end
+
+    return location, nil
+end
+
+-- Split location string handling nested parentheses
+local function split_location_parts(inner: string): ({string}, string)
+    local parts: {string} = {}
+    local current = ""
+    local paren_count = 0
+    
+    for i = 1, #inner do
+        local char = inner:sub(i,i)
+        if char == "(" then
+            paren_count = paren_count + 1
+            current = current .. char
+        elseif char == ")" then
+            paren_count = paren_count - 1
+            current = current .. char
+        elseif char == "," and paren_count == 0 then
+            -- Only split on commas at top level
+            local cleaned = clean_whitespace(current)
+            if #cleaned > 0 then
+                table.insert(parts, cleaned)
+            end
+            current = ""
+        else
+            current = current .. char
+        end
+    end
+    
+    if paren_count ~= 0 then
+        return nil, "Unbalanced parentheses"
+    end
+
+    -- Don't forget the last part
+    local cleaned = clean_whitespace(current)
+    if #cleaned > 0 then
+        table.insert(parts, cleaned)
+    end
+
+    return parts, nil
+end
+
+-- Recursive location parsing with proper table handling
+local function parse_location_recursive(expr: string, depth: integer): (Location, string)
+    if depth > 10 then
+        return nil, "Maximum recursion depth exceeded"
+    end
+
+    -- Clean input
+    local cleaned = clean_whitespace(expr)
+    if #cleaned == 0 then
+        return nil, "Empty location string"
+    end
+
+    -- Check for basic location (no parentheses)
+    if not cleaned:find("%(") then
+        return parse_simple_location(cleaned)
+    end
+
+    -- Parse complex location (join/complement)
+    local command, inner = cleaned:match("^(%w+)%((.+)%)$")
+    if not command or not inner then
+        return nil, "Invalid location format"
+    end
+
+    -- Create new location with explicit initialization
+    local location: Location = {
+        Start = 0,
+        End = 0,
+        Complement = false,
+        Join = false,
+        FivePrimePartial = false,
+        ThreePrimePartial = false,
+        GbkLocationString = expr,
+        SubLocations = {}
+    }
+
+    if command == "complement" then
+        local subloc, err = parse_location_recursive(inner, depth + 1)
+        if err then
+            return nil, err
+        end
+        
+        -- Create new complement location
+        local complement_loc = {
+            Start = subloc.Start,
+            End = subloc.End,
+            Complement = true,
+            Join = subloc.Join,
+            FivePrimePartial = subloc.FivePrimePartial,
+            ThreePrimePartial = subloc.ThreePrimePartial,
+            GbkLocationString = expr,
+            SubLocations = {}
+        }
+        
+        -- Deep copy sublocations
+        for _, sub in ipairs(subloc.SubLocations) do
+            table.insert(complement_loc.SubLocations, deep_copy_location(sub))
+        end
+        
+        table.insert(location.SubLocations, complement_loc)
+        return location, nil
+
+    elseif command == "join" then
+        location.Join = true
+        
+        -- Split parts handling nested parentheses
+        local parts, err = split_location_parts(inner)
+        if err then
+            return nil, err
+        end
+
+        -- Parse each part recursively
+        for _, part in ipairs(parts) do
+            local subloc, err2 = parse_location_recursive(part, depth + 1)
+            if err2 then
+                return nil, err2
+            end
+            -- Add deep copy of sublocation
+            table.insert(location.SubLocations, deep_copy_location(subloc))
+        end
+
+        return location, nil
+    else
+        return nil, "Unknown location command: " .. command
+    end
+end
+
+local function parse_location(location_string: string): (Location, string)
+    if not location_string or #location_string == 0 then
+        return nil, "Empty location string"
+    end
+
+    local location, err = parse_location_recursive(location_string, 0)
+    if err then
+        return nil, err
+    end
+
+    -- Simplify single sublocation case
+    if location.Start == 0 and location.End == 0 
+       and not location.Join and not location.Complement 
+       and #location.SubLocations == 1 then
+        -- Create new copy of the sublocation
+        local subloc = location.SubLocations[1]
+        location = deep_copy_location(subloc)
+    end
+
+    location.GbkLocationString = location_string
+    return location, nil
+end
+
 -- Feature handling with proper table management
 local function finalize_current_feature(state: ParseLoopParameters)
     --if state.current_feature.Type ~= "" then
         -- Parse location string into actual location structure
         local loc_str = state.current_feature.Location.GbkLocationString 
         if loc_str and #loc_str > 0 then
-            local parsed_loc, perr = genbank.parse_location(loc_str)
+            local parsed_loc, perr = parse_location(loc_str)
             if not perr and parsed_loc then
                 -- Preserve the GbkLocationString while updating numeric fields
                 parsed_loc.GbkLocationString = loc_str
@@ -621,209 +819,8 @@ local function process_feature_line(state: ParseLoopParameters, line: string): s
     return nil
 end
 
--- Location parsing implementation
-local function parse_simple_location(loc_str: string): (Location, string)
-    -- Create new location with explicit initialization
-    local location: Location = {
-        Start = 0,
-        End = 0,
-        Complement = false,
-        Join = false,
-        FivePrimePartial = false,
-        ThreePrimePartial = false,
-        GbkLocationString = loc_str,
-        SubLocations = {}
-    }
-
-    -- Handle partial indicators
-    if loc_str:find("<") then
-        location.FivePrimePartial = true
-        loc_str = loc_str:gsub("<", "")
-    end
-    if loc_str:find(">") then
-        location.ThreePrimePartial = true
-        loc_str = loc_str:gsub(">", "")
-    end
-
-    -- Parse the location numbers
-    if not loc_str:find("%.%.") then
-        -- Single position
-        local pos = tonumber(loc_str) as integer
-        if not pos then
-            return nil, "Invalid position in location string"
-        end
-        -- Convert to 0-based indexing
-        location.Start = pos - 1
-        location.End = pos
-    else
-        -- Range
-        local start_str, end_str = loc_str:match("(%d+)%.%.(%d+)")
-        if not start_str or not end_str then
-            return nil, "Invalid range format"
-        end
-        local start = tonumber(start_str) as integer
-        local end_pos = tonumber(end_str) as integer
-        if not start or not end_pos then
-            return nil, "Invalid range numbers"
-        end
-        -- Convert to 0-based indexing
-        location.Start = start - 1
-        location.End = end_pos
-    end
-
-    return location, nil
-end
-
--- Split location string handling nested parentheses
-local function split_location_parts(inner: string): ({string}, string)
-    local parts: {string} = {}
-    local current = ""
-    local paren_count = 0
-    
-    for i = 1, #inner do
-        local char = inner:sub(i,i)
-        if char == "(" then
-            paren_count = paren_count + 1
-            current = current .. char
-        elseif char == ")" then
-            paren_count = paren_count - 1
-            current = current .. char
-        elseif char == "," and paren_count == 0 then
-            -- Only split on commas at top level
-            local cleaned = clean_whitespace(current)
-            if #cleaned > 0 then
-                table.insert(parts, cleaned)
-            end
-            current = ""
-        else
-            current = current .. char
-        end
-    end
-    
-    if paren_count ~= 0 then
-        return nil, "Unbalanced parentheses"
-    end
-
-    -- Don't forget the last part
-    local cleaned = clean_whitespace(current)
-    if #cleaned > 0 then
-        table.insert(parts, cleaned)
-    end
-
-    return parts, nil
-end
-
--- Recursive location parsing with proper table handling
-local function parse_location_recursive(expr: string, depth: integer): (Location, string)
-    if depth > 10 then
-        return nil, "Maximum recursion depth exceeded"
-    end
-
-    -- Clean input
-    local cleaned = clean_whitespace(expr)
-    if #cleaned == 0 then
-        return nil, "Empty location string"
-    end
-
-    -- Check for basic location (no parentheses)
-    if not cleaned:find("%(") then
-        return parse_simple_location(cleaned)
-    end
-
-    -- Parse complex location (join/complement)
-    local command, inner = cleaned:match("^(%w+)%((.+)%)$")
-    if not command or not inner then
-        return nil, "Invalid location format"
-    end
-
-    -- Create new location with explicit initialization
-    local location: Location = {
-        Start = 0,
-        End = 0,
-        Complement = false,
-        Join = false,
-        FivePrimePartial = false,
-        ThreePrimePartial = false,
-        GbkLocationString = expr,
-        SubLocations = {}
-    }
-
-    if command == "complement" then
-        local subloc, err = parse_location_recursive(inner, depth + 1)
-        if err then
-            return nil, err
-        end
-        
-        -- Create new complement location
-        local complement_loc = {
-            Start = subloc.Start,
-            End = subloc.End,
-            Complement = true,
-            Join = subloc.Join,
-            FivePrimePartial = subloc.FivePrimePartial,
-            ThreePrimePartial = subloc.ThreePrimePartial,
-            GbkLocationString = expr,
-            SubLocations = {}
-        }
-        
-        -- Deep copy sublocations
-        for _, sub in ipairs(subloc.SubLocations) do
-            table.insert(complement_loc.SubLocations, deep_copy_location(sub))
-        end
-        
-        table.insert(location.SubLocations, complement_loc)
-        return location, nil
-
-    elseif command == "join" then
-        location.Join = true
-        
-        -- Split parts handling nested parentheses
-        local parts, err = split_location_parts(inner)
-        if err then
-            return nil, err
-        end
-
-        -- Parse each part recursively
-        for _, part in ipairs(parts) do
-            local subloc, err2 = parse_location_recursive(part, depth + 1)
-            if err2 then
-                return nil, err2
-            end
-            -- Add deep copy of sublocation
-            table.insert(location.SubLocations, deep_copy_location(subloc))
-        end
-
-        return location, nil
-    else
-        return nil, "Unknown location command: " .. command
-    end
-end
-
-function genbank.parse_location(location_string: string): (Location, string)
-    if not location_string or #location_string == 0 then
-        return nil, "Empty location string"
-    end
-
-    local location, err = parse_location_recursive(location_string, 0)
-    if err then
-        return nil, err
-    end
-
-    -- Simplify single sublocation case
-    if location.Start == 0 and location.End == 0 
-       and not location.Join and not location.Complement 
-       and #location.SubLocations == 1 then
-        -- Create new copy of the sublocation
-        local subloc = location.SubLocations[1]
-        location = deep_copy_location(subloc)
-    end
-
-    location.GbkLocationString = location_string
-    return location, nil
-end
-
 -- Location string building with proper recursion handling
-function genbank.build_location_string(location: Location): string
+local function build_location_string(location: Location): string
     -- Helper to format position with partial indicators
     local function build_position_string(pos: integer, partial: boolean): string
         local s = tostring(pos + 1) -- Convert back to 1-based
@@ -847,7 +844,7 @@ function genbank.build_location_string(location: Location): string
     if location.Join then
         local parts: {string} = {}
         for _, subloc in ipairs(location.SubLocations) do
-            table.insert(parts, genbank.build_location_string(subloc))
+            table.insert(parts, build_location_string(subloc))
         end
         return "join(" .. table.concat(parts, ",") .. ")"
     
@@ -864,7 +861,7 @@ function genbank.build_location_string(location: Location): string
             GbkLocationString = "",
             SubLocations = location.SubLocations
         }
-        return "complement(" .. genbank.build_location_string(inner_loc) .. ")"
+        return "complement(" .. build_location_string(inner_loc) .. ")"
     
     -- Handle simple location
     else
@@ -979,7 +976,7 @@ function Genbank:add_feature(feature: Feature): string
 end
 
 -- Build feature string for output
-function genbank.build_feature_string(feature: Feature): string
+local function build_feature_string(feature: Feature): string
     if not feature then return "" end
 
     -- Calculate spacing
@@ -990,7 +987,7 @@ function genbank.build_feature_string(feature: Feature): string
     -- Get location string
     local location = feature.Location.GbkLocationString
     if #location == 0 then
-        location = genbank.build_location_string(feature.Location)
+        location = build_location_string(feature.Location)
     end
 
     -- Build feature header
@@ -1266,7 +1263,7 @@ function Genbank:write_to(writer: bio.Writer): (integer, string)
     if err then return written, err end
 
     for _, feature in ipairs(self.Features) do
-        err = write_line(genbank.build_feature_string(feature))
+        err = write_line(build_feature_string(feature))
         if err then return written, err end
     end
 

@@ -1,5 +1,5 @@
---[[
-Package primers provides utilities for creating primers and DNA barcodes.
+--[[ Module primers
+Module primers provides utilities for creating primers and DNA barcodes.
 
 Primers are short sequences of DNA that can be used to amplify DNA sequences
 and they are the workhorse of modern molecular biology.
@@ -21,12 +21,15 @@ local record primers
     create_barcodes: function(length: integer, max_subsequence: integer): {string}
     create_barcodes_with_banned_sequences: function(length: integer, max_subsequence: integer, banned_sequences: {string}, banned_functions: {function(string): boolean}): {string}
     create_barcodes_gc_range: function(length: integer, max_subsequence: integer, min_gc_content: number, max_gc_content: number): {string}
+
+	-- Types
+	Thermodynamics: Thermodynamics
 end
 
 local transform = require("transform")
 
 -- Record to store thermodynamic values for nucleotide pairs
-local record thermodynamics
+local record Thermodynamics
     h: number  -- enthalpy (dH, kcal/mol)
     s: number  -- entropy (dS, cal/mol-K)
 end
@@ -37,7 +40,7 @@ temperature using the SantaLucia algorithm.
 --]]
 
 -- Penalties for nearest neighbor effects
-local nearest_neighbors_thermodynamics: {string:thermodynamics} = {
+local nearest_neighbors_thermodynamics: {string:Thermodynamics} = {
     ["AA"] = { h = -7.6, s = -21.3 },
     ["TT"] = { h = -7.6, s = -21.3 },
     ["AT"] = { h = -7.2, s = -20.4 },
@@ -56,9 +59,9 @@ local nearest_neighbors_thermodynamics: {string:thermodynamics} = {
     ["CC"] = { h = -8.0, s = -19.9 }
 }
 
-local initial_thermodynamic_penalty: thermodynamics = { h = 0.2, s = -5.7 }      -- penalty for initiating helix
-local symmetry_thermodynamic_penalty: thermodynamics = { h = 0, s = -1.4 }       -- penalty for self-complementarity
-local terminal_at_thermodynamic_penalty: thermodynamics = { h = 2.2, s = 6.9 }   -- penalty for 3' AT
+local initial_thermodynamic_penalty: Thermodynamics = { h = 0.2, s = -5.7 }      -- penalty for initiating helix
+local symmetry_thermodynamic_penalty: Thermodynamics = { h = 0, s = -1.4 }       -- penalty for self-complementarity
+local terminal_at_thermodynamic_penalty: Thermodynamics = { h = 2.2, s = 6.9 }   -- penalty for 3' AT
 
 --[[
 SantaLucia calculates the melting point of a short DNA sequence (15-200 bp), 

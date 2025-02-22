@@ -1,5 +1,5 @@
---[[
-Package clone provides functions for cloning DNA sequences.
+--[[ Module clone
+Module clone provides functions for cloning DNA sequences.
 
 Since 1973, the most common way to make recombinant DNA has been restriction
 enzyme cloning (though lately, homologous recombination based methods like
@@ -51,11 +51,13 @@ local record clone
    ligate: function(fragments: {Fragment}, circular: boolean): (string, {integer}, string)
    golden_gate: function(sequences: {Part}, cutting_enzyme: Enzyme, methylated: boolean): (string, {integer}, string)
 
-   default_enzymes: EnzymeMap
+   default_enzymes: {string:Enzyme}
 
    -- Kmer analysis functions for analyzing ligation junctions
    find_kmer_overlaps: function(fragments: {Fragment}, ligation_product: string, ligation_pattern: {integer}, kmer_size: integer): ({KmerOverlap}, string)
    find_kmers: function(kmer_overlaps: {KmerOverlap}, sequence: string): {KmerOverlap}
+
+   Overhang: Overhang
 end
 
 -- Core type definitions
@@ -101,11 +103,8 @@ local record KmerOverlap
    fragment2: Fragment
 end
 
--- Type definition for enzyme map
-local type EnzymeMap = {string:Enzyme}
-
 -- Default enzymes with Lua patterns instead of regexp
-local default_enzymes: EnzymeMap = {
+local default_enzymes: {string:Enzyme} = {
    BsaI = {
       name = "BsaI",
       pattern_for = "GGTCTC",  -- Will need to carefully handle pattern matching
@@ -349,7 +348,7 @@ function clone.cut_with_enzyme(part: Part, directional: boolean, enzyme: Enzyme,
    return fragments
 end
 
--- Import required functions from other packages
+-- Import required functions from other modules
 local transform = require("transform")
 
 --[[

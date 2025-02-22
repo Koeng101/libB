@@ -1,5 +1,5 @@
---[[
-Package fragment optimally fragments DNA for GoldenGate systems.
+--[[ Module fragment
+Module fragment optimally fragments DNA for GoldenGate systems.
 
 Optimal fragmentation is accomplished by using empirical fidelity data derived
 by NEB in the paper "Enabling one-pot Golden Gate assemblies of unprecedented

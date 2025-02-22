@@ -1,5 +1,5 @@
---[[
-Package pileup contains pileup parsers and writers.
+--[[ Module pileup
+Module pileup contains pileup parsers and writers.
 
 The pileup format is a text-based bioinformatics format to summarize aligned
 reads against a reference sequence. In comparison to simply getting a consensus
@@ -29,7 +29,7 @@ wikipedia (https://en.wikipedia.org/wiki/Pileup_format) is shown below:
     5. Read Results: The resultant alignments
     6. Quality: Phred quality scores associated with each base
 
-This package provides a parser and writer for working with pileup files.
+This module provides a parser and writer for working with pileup files.
 
 Wikipedia reference: https://en.wikipedia.org/wiki/Pileup_format
 ]]
@@ -82,7 +82,7 @@ local record PileupParser is bio.Parser
 
    -- Implement bio.Parser interface
    header: function(self: PileupParser): (bio.Header, string)
-   next: function(self: PileupParser): (bio.Data, string)
+   next: function(self: PileupParser): (PileupLine, string)
    get_format: function(self: PileupParser): bio.Format
 end
 
@@ -182,7 +182,7 @@ function pileup.new_parser(reader: bio.Reader, max_line_size: integer): PileupPa
       return "PILEUP"
    end
 
-   function parser:next(): (bio.Data, string)
+   function parser:next(): (PileupLine, string)
       if self.at_eof then
          return nil, "EOF"
       end

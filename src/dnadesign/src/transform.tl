@@ -1,4 +1,4 @@
---[[
+--[[ Module transform
 Module transform provides functions for transforming sequences.
 ]]
 local record transform

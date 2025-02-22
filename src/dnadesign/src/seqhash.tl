@@ -1,4 +1,4 @@
---[[
+--[[ Module seqhash
 Module seqhash contains the seqhash algorithm.
 
 This module contains the reference seqhash algorithm in Teal.

@@ -1,7 +1,7 @@
---[[
-Package codon is a package for optimizing codons for expression when synthesizing DNA.
+--[[ Module codon
+Module codon is a module for optimizing codons for expression when synthesizing DNA.
 
-This package contains almost everything you need to do standard codon optimization.
+This module contains almost everything you need to do standard codon optimization.
 
 Biological context: certain cells favor certain codons and will reject or under
 express sequences that don't use a similar ratio of codons.

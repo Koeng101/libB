@@ -1,5 +1,5 @@
---[[
-Package fix fixes synthetic DNA molecules in preparation for synthesis.
+--[[ Module fix
+Module fix fixes synthetic DNA molecules in preparation for synthesis.
 
 Many synthesis companies have restrictions on the DNA they can synthesize. This
 synthesis fixer takes advantage of synonymous codons in protein coding
@@ -207,7 +207,7 @@ end
 --[[
 # For developers
 
-cds is the core function of the synthesis fixing package. It takes a CDS
+cds is the core function of the synthesis fixing module. It takes a CDS
 and uses degenerate codons to fix up places with undesirable sequence.
 
 The most important part of synthesis fixing is the functions that go into it

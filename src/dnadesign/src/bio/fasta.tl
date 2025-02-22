@@ -1,12 +1,12 @@
---[[
-Package fasta contains fasta parsers and writers.
+--[[ Module fasta
+Module fasta contains fasta parsers and writers.
 
 Fasta is a flat text file format developed in 1985 to store nucleotide and
 amino acid sequences. It is extremely simple and well-supported across many
 languages. However, this simplicity means that annotation of genetic objects
 is not supported.
 
-This package provides a parser and writer for working with Fasta formatted
+This module provides a parser and writer for working with Fasta formatted
 genetic sequences.
 ]]
 
@@ -84,7 +84,7 @@ local record FastaParser is bio.Parser
 
    -- Implement bio.Parser interface
    header: function(self: FastaParser): (bio.Header, string)
-   next: function(self: FastaParser): (bio.Data, string)
+   next: function(self: FastaParser): (FastaRecord, string)
    get_format: function(self: FastaParser): bio.Format
 end
 
@@ -180,7 +180,7 @@ function fasta.new_parser(reader: bio.Reader, max_line_size: integer): FastaPars
       return new_fasta_record(self.identifier, sequence), nil
    end
 
-   function parser:next(): (bio.Data, string)
+   function parser:next(): (FastaRecord, string)
       if not self.more then
          return nil, "EOF"
       end

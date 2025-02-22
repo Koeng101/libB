@@ -1,5 +1,5 @@
---[[
-Package sam implements a SAM file parser and writer.
+--[[ Module sam
+Module sam implements a SAM file parser and writer.
 
 SAM is a tab-delimited text format for storing DNA/RNA sequence alignment data.
 It is the most widely used alignment format, complementing its binary
@@ -131,7 +131,7 @@ local record SamParser is bio.Parser
 
    -- Implement bio.Parser interface
    header: function(self: SamParser): (bio.Header, string)
-   next: function(self: SamParser): (bio.Data, string)
+   next: function(self: SamParser): (SamAlignment, string)
    get_format: function(self: SamParser): bio.Format
 end
 
@@ -485,7 +485,7 @@ function sam.new_parser(reader: bio.Reader, max_line_size: integer): (SamParser,
       return "SAM"
    end
 
-   function parser:next(): (bio.Data, string)
+   function parser:next(): (SamAlignment, string)
 	   local line: string
 	   local err: string
 	   

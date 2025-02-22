@@ -1,4 +1,4 @@
---[[
+--[[ Module mash
 Module mash is for sketching sequence data to make it easier to compare to other sequence.
 
 The module is named mash after the mash sketching algorithm, which is based on the MinHash algorithm.

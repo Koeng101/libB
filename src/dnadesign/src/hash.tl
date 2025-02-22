@@ -1,5 +1,8 @@
--- hash.tl
--- Implementation of common hashing algorithms
+--[[ Module hash
+Module hash contains implementations of common hash algorithms. While normally
+these would be imported from the system (and would be much faster there), these
+are to ensure cross-platform compatibility.
+]]
 
 local record hash
     bit32: bit32
