@@ -7,6 +7,9 @@ package luaeval
 #cgo LDFLAGS: -L${SRCDIR}/build/lib -l:liblua_eval.a -ldl -lm
 #include <stdlib.h>
 #include "lua_eval.h"
+
+// Embedded header
+char* lua_eval_string(const char* input);
 */
 import "C"
 import (
