@@ -34,10 +34,11 @@ luajit:
 
 # Build the static library (combined with LuaJIT)
 $(BUILD_DIR)/lib/liblua_eval.a: $(SRC_DIR)/lua_eval.c $(SRC_DIR)/lua_eval.h luajit
-	mkdir -p $(BUILD_DIR)/lib
+	mkdir -p $(BUILD_DIR)/lib $(BUILD_DIR)/include
 	$(CC) -c $(CFLAGS) -o $(BUILD_DIR)/lib/lua_eval.o $(SRC_DIR)/lua_eval.c
 	$(AR) x $(BUILD_DIR)/lib/libluajit-5.1.a  # Extract LuaJIT objects
 	$(AR) rcs $@ $(BUILD_DIR)/lib/lua_eval.o *.o  # Combine all objects
+	cp $(SRC_DIR)/lua_eval.h $(BUILD_DIR)/include/  # Copy header to include
 	rm $(BUILD_DIR)/lib/lua_eval.o *.o  # Cleanup
 
 # Build the static executable
