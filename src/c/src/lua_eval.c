@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include "dnadesign.h"
 
-#define MAX_RESPONSE_SIZE 1024
+#define MAX_RESPONSE_SIZE 32768
 
 /*
  * Lua Evaluation
