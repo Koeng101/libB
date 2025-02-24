@@ -1,3 +1,10 @@
 zig-out
 deps
-build
+build/bin
+build/include
+build/lib/libcjson.a
+build/lib/libluajit-5.1.a
+build/lib/pkgconfig/
+build/server
+build/share/
+build/test_lua_eval
