@@ -6,6 +6,10 @@ extern "C" {
 #endif
 
 #include <stddef.h>
+#include <lua.h>
+#include <lualib.h>
+#include <lauxlib.h>
+#include "cJSON.h"
 
 // Configuration structure for the Lua sandbox
 typedef struct {
@@ -34,6 +38,15 @@ lua_eval_result lua_eval_string_sandbox(const char* input, lua_sandbox_config co
 
 // Free memory associated with evaluation result
 void lua_free_result(lua_eval_result result);
+
+// Function to split a byte array into lines for protocol parsing
+// Returns both the full string and an array of lines
+void lua_split_protocol_bytes(lua_State* L, const char* bytes, size_t length);
+
+// Function to extract protocol functions and their metadata
+// Returns a JSON string with function names, hashes, and source code
+// Caller is responsible for freeing the returned string
+char* extract_protocol_functions(const char* bytes, size_t length);
 
 #ifdef __cplusplus
 }

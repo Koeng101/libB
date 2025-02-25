@@ -318,3 +318,145 @@ lua_eval_result lua_eval_string_sandbox(const char* input, lua_sandbox_config co
     lua_close(L);
     return result;
 }
+
+/*
+function extraction
+*/
+
+// Split a byte array into lines, preserving exact file:lines() behavior
+// Pushes two values onto the Lua stack:
+// 1. The full string representation of the bytes
+// 2. A table of lines, split at true newline characters
+void lua_split_protocol_bytes(lua_State* L, const char* bytes, size_t length) {
+    // First, push the full string to the Lua stack
+    lua_pushlstring(L, bytes, length);
+    
+    // Create a new table for the lines
+    lua_newtable(L);
+    
+    // Track position and line count
+    size_t line_start = 0;
+    int line_count = 0;
+    
+    // Scan through the bytes looking for newlines
+    for (size_t i = 0; i < length; i++) {
+        // If we found a newline character (byte 10)
+        if (bytes[i] == '\n') {
+            // Push the line to the table (not including the newline)
+            lua_pushlstring(L, bytes + line_start, i - line_start);
+            line_count++;
+            lua_rawseti(L, -2, line_count);
+            
+            // Update line_start to the character after the newline
+            line_start = i + 1;
+        }
+    }
+    
+    // Handle the last line (might not end with a newline)
+    if (line_start < length) {
+        lua_pushlstring(L, bytes + line_start, length - line_start);
+        line_count++;
+        lua_rawseti(L, -2, line_count);
+    } else if (bytes[length-1] == '\n') {
+        // If the last character was a newline, add an empty line
+        // This matches file:lines() behavior
+        lua_pushliteral(L, "");
+        line_count++;
+        lua_rawseti(L, -2, line_count);
+    }
+    
+    // The stack now has the full string at index -2 and the lines table at index -1
+}
+
+char* extract_protocol_functions(const char* bytes, size_t length) {
+    char* result = NULL;
+    
+    // Create Lua state and open libraries
+    lua_State* L = luaL_newstate();
+    if (!L) return strdup("Error: Could not create Lua state");
+    luaL_openlibs(L);
+    
+    // Split protocol bytes and load dnadesign
+    lua_split_protocol_bytes(L, bytes, length);
+    if (luaL_loadbuffer(L, (const char*)luaJIT_BC_dnadesign,
+                      luaJIT_BC_dnadesign_SIZE, "dnadesign") ||
+        lua_pcall(L, 0, 1, 0)) {
+        const char* error = lua_tostring(L, -1);
+        lua_close(L);
+        return strdup(error);
+    }
+    lua_setglobal(L, "dnadesign");
+
+    // Load our Lua helper code
+    const char* lua_code = R"(
+        local function bytes_to_hex(bytes)
+            local hex = {}
+            for i = 1, #bytes do
+                hex[i] = string.format("%02x", bytes[i])
+            end
+            return table.concat(hex)
+        end
+
+        function process_functions(protocol_code, lines)
+            local funcs = load(protocol_code)()
+            if type(funcs) ~= "table" then
+                error("Protocol must return a table of functions")
+            end
+
+            local result = {functions = {}}
+            for name, func in pairs(funcs) do
+                if type(func) == "function" then
+                    -- Get source
+                    local info = debug.getinfo(func, "S")
+                    local source = ""
+                    if info.linedefined > 0 and info.lastlinedefined > 0 then
+                        local source_lines = {}
+                        for i = info.linedefined, info.lastlinedefined do
+                            table.insert(source_lines, lines[i])
+                        end
+                        source = table.concat(source_lines, "\n")
+                    end
+
+                    -- Get hash
+                    local bytecode = string.dump(func)
+                    local hasher = dnadesign.hash.new_sha256()
+                    hasher:write(bytecode)
+                    local hash = hasher:sum()
+                    
+                    table.insert(result.functions, {
+                        name = name,
+                        source = source,
+                        hash = bytes_to_hex(hash)
+                    })
+                end
+            end
+            return result
+        end
+    )";
+
+    // Load and run the helper code
+    if (luaL_loadstring(L, lua_code) || lua_pcall(L, 0, 0, 0)) {
+        const char* error = lua_tostring(L, -1);
+        lua_close(L);
+        return strdup(error);
+    }
+
+    // Call our process_functions with the protocol code and lines
+    lua_getglobal(L, "process_functions");
+    lua_pushvalue(L, -3);  // protocol code (full string)
+    lua_pushvalue(L, -3);  // lines table
+    
+    if (lua_pcall(L, 2, 1, 0)) {
+        const char* error = lua_tostring(L, -1);
+        lua_close(L);
+        return strdup(error);
+    }
+
+    // Convert the entire result table to JSON
+    cJSON* json = lua_to_json(L, -1);
+    result = cJSON_Print(json);
+    cJSON_Delete(json);
+    lua_close(L);
+    
+    return result;
+}
