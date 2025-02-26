@@ -1,7 +1,9 @@
 zig-out
 deps
 build/bin
-build/include
+build/include/lua*
+build/include/laux*
+build/include/cJSON*
 build/lib/libcjson.a
 build/lib/libluajit-5.1.a
 build/lib/pkgconfig/
