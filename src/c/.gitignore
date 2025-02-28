@@ -4,6 +4,7 @@ build/bin
 build/include/lua*
 build/include/laux*
 build/include/cJSON*
+build/include/picohttp*
 build/lib/libcjson.a
 build/lib/libluajit-5.1.a
 build/lib/pkgconfig/

@@ -376,8 +376,18 @@ char* extract_protocol_functions(const char* bytes, size_t length) {
     if (!L) return strdup("Error: Could not create Lua state");
     luaL_openlibs(L);
     
-    // Split protocol bytes and load dnadesign
+    // Split protocol bytes and store results in known positive indices
     lua_split_protocol_bytes(L, bytes, length);
+    // Now stack has: [1]=full_string, [2]=lines_table
+    
+    // Store references to our items in the registry to keep track of them
+    lua_pushvalue(L, 1);  // Duplicate full string
+    int full_string_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    
+    lua_pushvalue(L, 2);  // Duplicate lines table 
+    int lines_table_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    
+    // Load dnadesign module
     if (luaL_loadbuffer(L, (const char*)luaJIT_BC_dnadesign,
                       luaJIT_BC_dnadesign_SIZE, "dnadesign") ||
         lua_pcall(L, 0, 1, 0)) {
@@ -406,7 +416,6 @@ char* extract_protocol_functions(const char* bytes, size_t length) {
             local result = {functions = {}}
             for name, func in pairs(funcs) do
                 if type(func) == "function" then
-                    -- Get source
                     local info = debug.getinfo(func, "S")
                     local source = ""
                     if info.linedefined > 0 and info.lastlinedefined > 0 then
@@ -417,7 +426,6 @@ char* extract_protocol_functions(const char* bytes, size_t length) {
                         source = table.concat(source_lines, "\n")
                     end
 
-                    -- Get hash
                     local bytecode = string.dump(func)
                     local hasher = dnadesign.hash.new_sha256()
                     hasher:write(bytecode)
@@ -441,22 +449,35 @@ char* extract_protocol_functions(const char* bytes, size_t length) {
         return strdup(error);
     }
 
-    // Call our process_functions with the protocol code and lines
-    lua_getglobal(L, "process_functions");
-    lua_pushvalue(L, -3);  // protocol code (full string)
-    lua_pushvalue(L, -3);  // lines table
+    // Call process_functions with our stored references
+    lua_getglobal(L, "process_functions");  // Push function
     
+    // Get our stored items from registry and push them as arguments
+    lua_rawgeti(L, LUA_REGISTRYINDEX, full_string_ref);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, lines_table_ref);
+    
+    // Call with 2 arguments, expect 1 return value
     if (lua_pcall(L, 2, 1, 0)) {
         const char* error = lua_tostring(L, -1);
+        
+        // Clean up registry references
+        luaL_unref(L, LUA_REGISTRYINDEX, full_string_ref);
+        luaL_unref(L, LUA_REGISTRYINDEX, lines_table_ref);
+        
         lua_close(L);
         return strdup(error);
     }
 
-    // Convert the entire result table to JSON
+    // Convert result to JSON
     cJSON* json = lua_to_json(L, -1);
     result = cJSON_Print(json);
     cJSON_Delete(json);
-    lua_close(L);
     
+    // Clean up registry references
+    luaL_unref(L, LUA_REGISTRYINDEX, full_string_ref);
+    luaL_unref(L, LUA_REGISTRYINDEX, lines_table_ref);
+    
+    lua_close(L);
     return result;
 }
+
