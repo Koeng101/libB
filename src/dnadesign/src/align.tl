@@ -1,5 +1,5 @@
---[[
-Package align is a package for aligning (comparing) DNA, RNA, and protein sequences.
+--[[ Module align
+Module align is a module for aligning (comparing) DNA, RNA, and protein sequences.
 
 Biology is fickle and full of quirks that make it hard to do even the most basic of tasks
 which we would normally take for granted when working with other kinds of data.
